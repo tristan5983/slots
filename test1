@@ -1,394 +1,407 @@
-                        ` : ''}
-                        ${state.isGameActive ? `
-                            <div class="w-16 h-16 inline-block">
-                                <svg class="animate-spin w-full h-full text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                            </div>
-                        ` : ''}
-                    </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Big Nickel Token Slots Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Righteous&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Styles from original source */
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; }
+        .font-display { font-family: 'Righteous', cursive; }
+        .dot { display: flex; align-items: center; justify-content: center; }
+        @keyframes spin-fast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .animate-spin-fast { animation: spin-fast 0.1s linear infinite; }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 flex items-start justify-center">
+    <!-- PHP Inclusion of session start - Required for robust session use -->
+    <?php require 'config.php'; ?>
 
-                    <!-- Bet Amount Selector -->
-                    <div class="w-full mb-6">
-                        <label for="roulette-bet" class="block text-sm font-medium text-cyan-300 mb-2">Set Bet Amount (Min: ${MIN_BET} Tokens, Max: ${state.balance} Tokens)</label>
-                        <input
-                            type="number"
-                            id="roulette-bet"
-                            min="${MIN_BET}"
-                            max="${state.balance}"
-                            value="${BET_AMOUNT}"
-                            oninput="window.setRouletteBet(this.value)"
-                            ${state.isGameActive ? 'disabled' : ''}
-                            class="w-full p-3 rounded-lg bg-slate-700 text-white border border-slate-600 focus:border-cyan-400 focus:ring-cyan-400 disabled:bg-slate-700/50"
-                        />
-                    </div>
-                    
-                    <!-- Message Area (Fixed height above buttons) -->
-                    <div class="w-full mb-4 text-center h-10 flex flex-col justify-center">
-                        <p id="roulette-message" class="text-lg font-semibold text-white">${message}</p>
-                    </div>
+    <div id="app-container" class="w-full max-w-lg mx-auto bg-slate-800 rounded-2xl shadow-2xl p-6 border-4 border-cyan-400/80">
+        <!-- Content will be rendered here by JS -->
+        <div class="text-center p-8 text-xl text-cyan-400">Loading Application...</div>
+    </div>
+    
+<script>
+    const INITIAL_BALANCE = 500;
+    let state = {
+        userId: null,
+        balance: INITIAL_BALANCE,
+        isLoading: true,
+        error: null,
+        isAuthReady: false,
+        currentGame: 'slots',
+        isGameActive: false,
+        slotsReels: ['?', '?', '?'],
+        slotsMessage: 'Place your bet and spin!',
+        slotsBetAmount: 10,
+        rouletteResult: null,
+        rouletteMessage: 'Place your bet on Red or Black.',
+        rouletteBetAmount: 50,
+        diceRollResult: null,
+        diceMessage: 'Guess if the roll will be High (7+) or Low (6-).',
+        diceBetAmount: 25,
+    };
 
-                    <!-- Bet Buttons -->
-                    <div class="flex space-x-4 w-full">
-                        <button
-                            onclick="window.handleBetRoulette('red')"
-                            ${state.isGameActive || isInvalidBet ? 'disabled' : ''}
-                            class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white text-xl font-extrabold rounded-lg transition-all duration-200 shadow-md disabled:bg-slate-500 disabled:cursor-not-allowed"
-                        >
-                            BET RED (${BET_AMOUNT} Tokens)
-                        </button>
-                        <button
-                            onclick="window.handleBetRoulette('black')"
-                            ${state.isGameActive || isInvalidBet ? 'disabled' : ''}
-                            class="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white text-xl font-extrabold rounded-lg transition-all duration-200 shadow-md disabled:bg-slate-500 disabled:cursor-not-allowed"
-                        >
-                            BET BLACK (${BET_AMOUNT} Tokens)
-                        </button>
-                    </div>
-                    <p class="mt-4 text-sm text-cyan-300/80">Green (0) pays 17:1, but is not available to bet on.</p>
+    const appContainer = document.getElementById('app-container');
+
+    // ────────────────────── AUTH ──────────────────────
+    function showLogin() {
+        // This is the HTML that was missing from your previous render
+        appContainer.innerHTML = `
+            <div class="text-center p-8">
+                <h2 class="text-5xl font-display text-cyan-400 mb-8">Big Nickel Casino</h2>
+                <p class="text-red-400 mb-4">You must log in to play.</p>
+                <input id="username" placeholder="Username" class="w-full p-3 rounded mb-3 bg-slate-700 text-white">
+                <input id="password" type="password" placeholder="Password" class="w-full p-3 rounded mb-4 bg-slate-700 text-white">
+                <div class="flex gap-3">
+                    <button onclick="login()" class="flex-1 bg-cyan-600 hover:bg-cyan-700 py-3 rounded font-bold text-lg">Login</button>
+                    <button onclick="register()" class="flex-1 bg-green-600 hover:bg-green-700 py-3 rounded font-bold text-lg">Register</button>
                 </div>
-            `;
+                <p id="auth-msg" class="mt-4 text-red-400 h-6"></p>
+            </div>`;
+    }
+
+    async function login() {
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value;
+        const res = await fetch('login.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username:u,password:p})});
+        const data = await res.json();
+        if(data.success){ 
+            // On successful login, update state and load balance
+            state.isAuthReady = true; 
+            await loadBalance(); 
+            renderApp(); 
+        } else {
+            document.getElementById('auth-msg').textContent = data.msg || "Login failed";
+        }
+    }
+
+    async function register() {
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value;
+        const res = await fetch('login.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'register',username:u,password:p})});
+        const data = await res.json();
+        if(data.success) {
+            // Immediately log in after successful registration
+            await login(); 
+        } else {
+            document.getElementById('auth-msg').textContent = data.msg || "Register failed";
+        }
+    }
+
+    async function logout() {
+        await fetch('logout.php');
+        // Reloading the page will naturally trigger showLogin() again
+        location.reload();
+    }
+
+    // ────────────────────── BALANCE HELPERS ──────────────────────
+    async function loadBalance() {
+        state.isLoading = true;
+        renderApp(); // Show loading state immediately
+
+        const res = await fetch('api/balance.php');
+        const data = await res.json();
+        
+        if (data.balance !== undefined) {
+            state.balance = data.balance;
+            state.isLoading = false;
+        } else if (data.error === 'Not logged in') {
+            // This is the correct way to handle a session timeout/missing session
+            state.isAuthReady = false;
+            showLogin();
+            return; // Exit here to prevent renderApp from running with incorrect state
+        } else {
+            state.error = data.error || "Failed to load balance from API.";
+            state.isLoading = false;
+        }
+        state.isAuthReady = true; // Confirmed auth ready if balance loaded
+        renderApp();
+    }
+
+    async function deductBet(amount) {
+        const res = await fetch('api/bet.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount})});
+        const data = await res.json();
+        if (!data.success && data.insufficient) throw new Error("Insufficient funds");
+        if (!data.success) throw new Error("Bet failed");
+        await loadBalance();
+    }
+
+    async function addWin(amount) {
+        await fetch('api/win.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount})});
+        await loadBalance();
+    }
+
+    // ────────────────────── RENDERING HELPERS ──────────────────────
+    const updateState = (newState) => { 
+        Object.assign(state, newState); 
+        renderApp(); 
+    };
+    
+    const renderLoading = () => `<div class="text-center p-8 text-xl text-cyan-400">
+        <svg class="animate-spin h-8 w-8 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p>Connecting to database...</p>
+    </div>`;
+    
+    const renderError = (msg) => `<div class="text-center p-8 text-red-500">Error: ${msg}</div>`;
+
+    const DiceFace = (value) => { 
+        const dots = [];
+        const patterns = {
+            1: [5], 2: [0, 10], 3: [0, 5, 10], 4: [0, 2, 8, 10], 5: [0, 2, 5, 8, 10], 6: [0, 2, 3, 7, 8, 10]
         };
+        for(let i = 0; i < 11; i++) {
+            dots.push(`<div key=${i} class="w-2 h-2 rounded-full ${patterns[value].includes(i) ? 'bg-black' : 'opacity-0'}"></div>`);
+        }
+        return `<div class="grid grid-cols-3 gap-1 p-2 bg-white w-12 h-12 rounded-lg shadow-lg">${dots.join('')}</div>`;
+    };
 
-        // --- Game Logic (Attached to window for easy access from HTML) ---
+    // ──────── Placeholder for Original Render Functions ────────
+    // Since the original code was not provided, we must use placeholders
+    // to allow renderApp to run without errors.
 
-        window.setSlotsBet = (value) => {
-            const bet = parseInt(value, 10);
-            const MIN_BET = 10;
+    const renderGameButton = (name) => {
+        const isCurrent = state.currentGame === name.toLowerCase();
+        return `<button onclick="setCurrentGame('${name.toLowerCase()}')" 
+            class="flex-1 py-3 rounded font-bold text-lg transition ${isCurrent ? 'bg-cyan-600' : 'bg-slate-700 hover:bg-slate-600'}">
+            ${name}
+        </button>`;
+    };
+    
+    const renderSlotMachine = () => {
+        return `<div class="text-center">
+            <div class="flex justify-center my-6 space-x-4">
+                ${state.slotsReels.map(r => `<div class="text-6xl p-4 w-1/4 h-20 bg-slate-700 rounded-lg text-yellow-500 flex items-center justify-center">${r}</div>`).join('')}
+            </div>
+            <p class="text-xl h-6 text-yellow-500 mb-6">${state.slotsMessage}</p>
+            <div class="flex justify-center items-center space-x-4 mb-6">
+                <label class="text-white">Bet:</label>
+                <input type="number" min="10" max="100" step="10" value="${state.slotsBetAmount}" onchange="setSlotsBet(this.value)" 
+                       class="w-20 p-2 rounded bg-slate-700 text-white text-center">
+                <button onclick="spinSlots()" ${state.isGameActive || state.balance < state.slotsBetAmount ? 'disabled' : ''} 
+                        class="bg-yellow-500 hover:bg-yellow-600 py-3 px-8 rounded font-bold text-lg disabled:opacity-50 transition">
+                    Spin
+                </button>
+            </div>
+            <p class="text-sm text-cyan-400">Match 3 symbols for a big win!</p>
+        </div>`;
+    };
+
+    const renderRoulette = () => {
+        const result = state.rouletteResult ? `<p class="text-3xl font-bold mb-4 text-${state.rouletteResult === 'Red' ? 'red' : 'white'}-500">${state.rouletteResult} Wins!</p>` : '';
+        return `<div class="text-center">
+            ${result}
+            <p class="text-xl h-6 text-yellow-500 mb-6">${state.rouletteMessage}</p>
+            <div class="flex justify-center space-x-4 mb-6">
+                <button onclick="handleBetRoulette('Red')" class="bg-red-600 hover:bg-red-700 py-3 px-8 rounded font-bold text-lg disabled:opacity-50 transition">Bet Red</button>
+                <button onclick="handleBetRoulette('Black')" class="bg-black text-white border-2 border-white/50 hover:bg-gray-800 py-3 px-8 rounded font-bold text-lg disabled:opacity-50 transition">Bet Black</button>
+            </div>
+            <div class="flex justify-center items-center space-x-4 mb-6">
+                <label class="text-white">Bet:</label>
+                <input type="number" min="10" max="100" step="10" value="${state.rouletteBetAmount}" onchange="setRouletteBet(this.value)" 
+                       class="w-20 p-2 rounded bg-slate-700 text-white text-center">
+            </div>
+            <p class="text-sm text-cyan-400">Winning color pays 2x your bet.</p>
+        </div>`;
+    };
+
+    const renderDiceRoll = () => {
+        const resultHtml = state.diceRollResult 
+            ? `<div class="flex justify-center space-x-4 mb-4">
+                 ${DiceFace(state.diceRollResult[0])}
+                 ${DiceFace(state.diceRollResult[1])}
+               </div>
+               <p class="text-3xl font-bold text-yellow-500 mb-4">Total: ${state.diceRollResult[0] + state.diceRollResult[1]}</p>`
+            : `<p class="text-6xl text-cyan-400 mb-6 h-20">🎲🎲</p>`;
             
-            // Only update if it's a valid number. Clamp it at 0 minimum.
-            let newBet = isNaN(bet) || bet < 0 ? 0 : bet;
-            if (newBet > 0 && newBet < MIN_BET) newBet = MIN_BET; // Enforce minimum if they enter something low but positive
-            
-            updateState({ slotsBetAmount: newBet, slotsMessage: newBet < MIN_BET ? `Minimum bet is ${MIN_BET} Tokens.` : `Current Bet: ${newBet} Tokens` });
-        };
-        
-        window.setDiceBet = (value) => {
-            const bet = parseInt(value, 10);
-            const MIN_BET = 5; 
-            
-            let newBet = isNaN(bet) || bet < 0 ? 0 : bet;
-            if (newBet > 0 && newBet < MIN_BET) newBet = MIN_BET;
+        return `<div class="text-center">
+            ${resultHtml}
+            <p class="text-xl h-6 text-yellow-500 mb-6">${state.diceMessage}</p>
+            <div class="flex justify-center space-x-4 mb-6">
+                <button onclick="rollDice('High')" class="bg-green-600 hover:bg-green-700 py-3 px-8 rounded font-bold text-lg disabled:opacity-50 transition">Guess High (7+)</button>
+                <button onclick="rollDice('Low')" class="bg-red-600 text-white hover:bg-red-700 py-3 px-8 rounded font-bold text-lg disabled:opacity-50 transition">Guess Low (6-)</button>
+            </div>
+            <div class="flex justify-center items-center space-x-4 mb-6">
+                <label class="text-white">Bet:</label>
+                <input type="number" min="10" max="100" step="10" value="${state.diceBetAmount}" onchange="setDiceBet(this.value)" 
+                       class="w-20 p-2 rounded bg-slate-700 text-white text-center">
+            </div>
+            <p class="text-sm text-cyan-400">Winning guess pays 2x your bet.</p>
+        </div>`;
+    };
+    // ──────── End Placeholder for Original Render Functions ────────
+    
+    // ────────────────────── GAME LOGIC (dummy functions for placeholders) ──────────────────────
+    window.setSlotsBet = (v) => updateState({slotsBetAmount: parseInt(v) || 10});
+    window.setDiceBet = (v) => updateState({diceBetAmount: parseInt(v) || 25});
+    window.setRouletteBet = (v) => updateState({rouletteBetAmount: parseInt(v) || 50});
+    window.setCurrentGame = (game) => updateState({currentGame: game, isGameActive: false});
 
-            updateState({ diceBetAmount: newBet, diceMessage: newBet < MIN_BET ? `Minimum bet is ${MIN_BET} Tokens.` : `Current Bet: ${newBet} Tokens` });
-        };
+    window.spinSlots = async () => {    
+        const BET_AMOUNT = state.slotsBetAmount;
+        if (state.isGameActive || state.balance < BET_AMOUNT) return;
+        updateState({isGameActive:true, slotsMessage:`Spinning ${BET_AMOUNT} Tokens...`, slotsReels:['?','?','?']});
+        try {        
+            await deductBet(BET_AMOUNT);                         
+            setTimeout(() => { 
+                const symbols = ['🍒', '🍋', '7️⃣', '🔔'];
+                const finalReels = [
+                    symbols[Math.floor(Math.random() * symbols.length)],
+                    symbols[Math.floor(Math.random() * symbols.length)],
+                    symbols[Math.floor(Math.random() * symbols.length)],
+                ];
+                determineSlotWin(finalReels, BET_AMOUNT);
+            }, 2000);
+        } catch(e) {
+            updateState({isGameActive:false, slotsMessage: e.message.includes("Insufficient") ? "Not enough tokens!" : "Error"});
+        }
+    };
 
-        window.setRouletteBet = (value) => {
-            const bet = parseInt(value, 10);
-            const MIN_BET = 10;
-            
-            // Only update if it's a valid positive number, otherwise default to min or 0 if empty
-            let newBet = isNaN(bet) || bet < 0 ? 0 : bet;
-            if (newBet > 0 && newBet < MIN_BET) newBet = MIN_BET;
-            
-            // Ensure UI updates reflect the new bet amount and state
-            updateState({ rouletteBetAmount: newBet, rouletteMessage: newBet < MIN_BET ? `Minimum bet is ${MIN_BET} Tokens.` : `Current Bet: ${newBet} Tokens` });
-        };
+    const determineSlotWin = async (finalReels, BET_AMOUNT) => {
+        let profit = 0;
+        const [r1, r2, r3] = finalReels;
+        if (r1 === r2 && r2 === r3) {
+            profit = r1 === '7️⃣' ? 100 : 50; // Triple 7s pay more
+        } else if (r1 === r2 || r2 === r3 || r1 === r3) {
+            profit = 10; // Double match
+        }
 
-
-        window.spinSlots = () => {
-            const symbols = ['🍒', '🍋', '🔔', '⭐', '💎'];
-            const BET_AMOUNT = state.slotsBetAmount;
-            const MIN_BET = 10;
-            
-            if (BET_AMOUNT < MIN_BET) {
-                updateState({ slotsMessage: `Minimum bet is ${MIN_BET} Tokens.` });
-                return;
-            }
-
-            if (state.balance < BET_AMOUNT || state.isGameActive) {
-                updateState({ slotsMessage: state.balance < BET_AMOUNT ? 'Insufficient funds for this bet!' : 'Wait for the spin to finish.' });
-                return;
-            }
-        
-            updateState({ isGameActive: true, slotsMessage: `Spinning ${BET_AMOUNT} Tokens...`, slotsReels: ['?', '?', '?'] });
-            updateFunds(-BET_AMOUNT); 
-        
-            let spinCount = 0;
-            const interval = setInterval(() => {
-                const newReels = symbols.map(() => symbols[Math.floor(Math.random() * symbols.length)]);
-                updateState({ slotsReels: newReels }); 
-                spinCount++;
-        
-                if (spinCount > 20) {
-                    clearInterval(interval);
-                    const finalReels = [
-                        symbols[Math.floor(Math.random() * symbols.length)],
-                        symbols[Math.floor(Math.random() * symbols.length)],
-                        symbols[Math.floor(Math.random() * symbols.length)],
-                    ];
-                    updateState({ slotsReels: finalReels });
-                    determineSlotWin(finalReels);
-                }
-            }, 100);
-        };
-        
-        const determineSlotWin = (finalReels) => {
-            const [r1, r2, r3] = finalReels;
-            const BET_AMOUNT = state.slotsBetAmount; 
-            let profit = 0;
-            let message;
-        
-            if (r1 === r2 && r2 === r3) {
-                profit = BET_AMOUNT * 9; // 10x total return (9x profit)
-                message = `JACKPOT! Three ${r1}s! You won ${profit + BET_AMOUNT} Tokens! (Profit: ${profit} Tokens)`;
-            } else if (r1 === r2 || r2 === r3 || r1 === r3) {
-                profit = BET_AMOUNT * 1; // 2x total return (1x profit)
-                message = `Two matched! You won ${profit + BET_AMOUNT} Tokens! (Profit: ${profit} Tokens)`;
-            } else {
-                message = 'No match. Try again!';
-            }
-        
-            updateState({ slotsMessage: message, isGameActive: false });
-
-            if (profit > 0) {
-                // Return original bet + profit
-                updateFunds(profit + BET_AMOUNT); 
-            }
-        };
-
-        window.handleBetRoulette = (color) => {
-            const BET_AMOUNT = state.rouletteBetAmount;
-            const MIN_BET = 10;
-            const outcomes = {
-                0: { color: 'green', text: '0' },
-                1: { color: 'red', text: '1' },
-                2: { color: 'black', text: '2' },
-                3: { color: 'red', text: '3' },
-                4: { color: 'black', text: '4' },
-            };
-
-            if (state.isGameActive) {
-                updateState({ rouletteMessage: 'Wait for the roll to finish.' });
-                return;
-            }
-
-            if (BET_AMOUNT < MIN_BET || state.balance < BET_AMOUNT) {
-                 updateState({ rouletteMessage: BET_AMOUNT < MIN_BET ? `Minimum bet is ${MIN_BET} Tokens.` : 'Insufficient funds for this bet!' });
-                return;
-            }
-
-            updateState({ 
-                isGameActive: true, 
-                rouletteMessage: `Betting ${BET_AMOUNT} Tokens on ${color.toUpperCase()}...`,
-                rouletteResult: null,
-                rouletteBet: color
-            });
-            updateFunds(-BET_AMOUNT);
-
-            setTimeout(() => {
-                const winningNumber = Math.floor(Math.random() * 5); // 0-4
-                const winningOutcome = outcomes[winningNumber];
+        if (profit > 0) {
+            await addWin(profit + BET_AMOUNT);
+            updateState({isGameActive: false, slotsReels: finalReels, slotsMessage: `YOU WON ${profit + BET_AMOUNT}!`});
+        } else {
+            updateState({isGameActive: false, slotsReels: finalReels, slotsMessage: "Try again!"});
+        }
+    };
+    
+    window.handleBetRoulette = async (color) => {
+        const BET_AMOUNT = state.rouletteBetAmount;
+        if (state.isGameActive || state.balance < BET_AMOUNT) return;
+        updateState({isGameActive:true, rouletteMessage:`Betting ${BET_AMOUNT} on ${color.toUpperCase()}...`});
+        try {
+            await deductBet(BET_AMOUNT);
+            setTimeout(async () => {
+                const roll = Math.floor(Math.random() * 37); // 0-36
+                const resultColor = (roll === 0) ? 'Green' : (roll % 2 === 0) ? 'Red' : 'Black';
+                const youWon = (resultColor.toUpperCase() === color.toUpperCase());
                 
-                let winnings = 0; // Total return (bet + profit)
-                let message;
-
-                if (winningOutcome.color === 'green') {
-                    message = `The ball landed on GREEN (${winningOutcome.text})! You lost your bet.`;
-                } else if (winningOutcome.color === color) {
-                    winnings = 2 * BET_AMOUNT; // 1:1 payout (Total return: 2x bet)
-                    message = `The ball landed on ${winningOutcome.color.toUpperCase()} (${winningOutcome.text})! You won ${BET_AMOUNT} Tokens profit!`;
-                    updateFunds(winnings);
-                } else {
-                    message = `The ball landed on ${winningOutcome.color.toUpperCase()} (${winningOutcome.text}). Better luck next time.`;
+                let winAmount = 0;
+                if (youWon) {
+                    winAmount = 2 * BET_AMOUNT;
+                    await addWin(winAmount);
                 }
 
-                updateState({ 
-                    rouletteResult: winningOutcome, 
-                    rouletteMessage: message, 
-                    isGameActive: false 
+                updateState({
+                    isGameActive:false, 
+                    rouletteResult: resultColor,
+                    rouletteMessage: winAmount > 0 ? `Landed on ${resultColor}! You win ${winAmount} tokens!` : `Landed on ${resultColor}. Better luck next time.`
                 });
             }, 3000);
-        };
+        } catch(e) { 
+            updateState({isGameActive:false, rouletteMessage: e.message.includes("Insufficient") ? "Not enough tokens!" : "Error"});
+        }
+    };
 
-        window.rollDice = (guess) => {
-            const BET_AMOUNT = state.diceBetAmount;
-            const MIN_BET = 5;
-
-            if (BET_AMOUNT < MIN_BET) {
-                updateState({ diceMessage: `Minimum bet is ${MIN_BET} Tokens.` });
-                return;
-            }
-            
-            if (state.balance < BET_AMOUNT || state.isGameActive) {
-                updateState({ diceMessage: state.balance < BET_AMOUNT ? 'Insufficient funds for this bet!' : 'Wait for the roll to finish.' });
-                return;
-            }
-
-            updateState({ 
-                isGameActive: true, 
-                diceMessage: `Betting ${BET_AMOUNT} Tokens on ${guess}...`,
-                diceRollResult: null
-            });
-            updateFunds(-BET_AMOUNT); 
-
-            setTimeout(() => {
+    window.rollDice = async (guess) => {
+        const BET_AMOUNT = state.diceBetAmount;
+        if (state.isGameActive || state.balance < BET_AMOUNT) return;
+        updateState({isGameActive:true, diceMessage:`Rolling...`});
+        try {
+            await deductBet(BET_AMOUNT);
+            setTimeout(async () => {
                 const die1 = Math.floor(Math.random() * 6) + 1;
                 const die2 = Math.floor(Math.random() * 6) + 1;
-                const sum = die1 + die2;
-                const rollResult = { die1, die2, sum };
+                const total = die1 + die2;
+                
+                let win = false;
+                if (guess === 'High' && total >= 7) win = true;
+                if (guess === 'Low' && total <= 6) win = true;
 
-                const isHigh = sum >= 7;
-                const winCondition = (guess === 'HIGH' && isHigh) || (guess === 'LOW' && !isHigh);
-                let winnings = 0; // Total return (bet + profit)
-                let message;
-
-                if (winCondition) {
-                    winnings = 2 * BET_AMOUNT; // 1:1 payout (Total return: 2x bet)
-                    message = `Rolled a ${sum} (${die1} + ${die2}). You guessed ${guess} and WON ${BET_AMOUNT} Tokens profit!`;
-                    updateFunds(winnings);
-                } else {
-                    message = `Rolled a ${sum} (${die1} + ${die2}). You guessed ${guess} and LOST. Try again!`;
+                let winAmount = 0;
+                if (win) {
+                    winAmount = 2 * BET_AMOUNT;
+                    await addWin(winAmount);
                 }
 
-                updateState({ diceRollResult: rollResult, diceMessage: message, isGameActive: false });
+                updateState({
+                    isGameActive:false, 
+                    diceRollResult: [die1, die2],
+                    diceMessage: winAmount > 0 ? `Total is ${total}! You win ${winAmount} tokens!` : `Total is ${total}. You lose.`
+                });
             }, 2000);
-        };
+        } catch(e) { 
+            updateState({isGameActive:false, diceMessage: e.message.includes("Insufficient") ? "Not enough tokens!" : "Error"});
+        }
+    };
 
-        window.setCurrentGame = (gameName) => {
-            updateState({ currentGame: gameName, isGameActive: false });
-        };
+    // ────────────────────── MAIN RENDER ──────────────────────
+    const renderApp = () => {
+        if (!state.isAuthReady) {
+            // If auth is not ready (i.e., user not logged in), show login screen
+            showLogin();
+            return;
+        }
 
+        const header = `<header class="text-center mb-6">
+            <h1 class="text-4xl font-display text-yellow-500 border-b-4 border-yellow-500 inline-block pb-1 tracking-widest">
+                MOBILE CASINO
+            </h1>
+            <p class="text-xl text-white mt-4">Balance: <span class="text-cyan-400 font-bold">$${state.balance}</span></p>
+            <div class="flex justify-center gap-2 mt-4">
+                ${renderGameButton('Slots')}
+                ${renderGameButton('Roulette')}
+                ${renderGameButton('Dice')}
+            </div>
+        </header>`;
 
-        // --- Main Render Function ---
-        const renderApp = () => {
-            let gameContent = '';
-            // --- UPDATED HEADER WITH SPACE IN "Big Nickel" and new colors ---
-            let header = `
-                <header class="mb-8 text-center">
-                    <h1 class="font-display text-5xl sm:text-6xl text-cyan-400 uppercase tracking-[0.1em] border-b-4 border-cyan-600 pb-4 mb-4 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-                        Big Nickel<br>Token Slots
-                    </h1>
-                    <p class="mt-2 text-2xl font-bold text-white tracking-wide">
-                        Balance: <span class="text-green-400 drop-shadow-md">${state.balance} Tokens</span>
-                    </p>
-                    ${state.userId ? `<p class="mt-1 text-xs text-slate-400 font-mono">User ID: ${state.userId}</p>` : ''}
-                </header>
-                <nav class="flex justify-between space-x-2 mb-8 p-2 bg-slate-900 rounded-lg shadow-inner">
-                    ${renderGameButton('Slots')}
-                    ${renderGameButton('Roulette')}
-                    ${renderGameButton('Dice')}
-                </nav>
-            `;
-
-            if (state.isLoading) {
-                gameContent = renderLoading();
-            } else if (state.error) {
-                gameContent = renderError(state.error);
-            } else {
-                switch (state.currentGame) {
-                    case 'slots':
-                        gameContent = renderSlotMachine();
-                        break;
-                    case 'roulette':
-                        gameContent = renderRoulette();
-                        break;
-                    case 'dice':
-                        gameContent = renderDiceRoll();
-                        break;
-                    default:
-                        gameContent = '<div class="text-white">Select a game to begin!</div>';
-                }
+        let gameContent;
+        if (state.isLoading) {
+            gameContent = renderLoading();
+        } else if (state.error) {
+            gameContent = renderError(state.error);
+        } else {
+            switch (state.currentGame) {
+                case 'slots':
+                    gameContent = renderSlotMachine();
+                    break;
+                case 'roulette':
+                    gameContent = renderRoulette();
+                    break;
+                case 'dice':
+                    gameContent = renderDiceRoll();
+                    break;
+                default:
+                    gameContent = renderError("Game not found.");
             }
+        }
 
-            const footer = `
-                <footer class="mt-8 pt-4 border-t border-slate-700 text-center text-xs text-slate-500">
-                    <p>Big Nickel Simulation - Funds are not real currency. Created by Gemini.</p>
-                </footer>
-            `;
-
-            appContainer.innerHTML = header + gameContent + footer;
-        };
+        const footer = `<footer class="mt-8 pt-4 border-t border-slate-700">
+            <p class="text-center text-xs text-slate-500">Simulation Game - Funds are not real currency.</p>
+            <button onclick="logout()" class="mt-4 w-full bg-red-600 hover:bg-red-700 py-2 rounded font-bold text-sm text-white transition">
+                Logout
+            </button>
+        </footer>`;
         
-        const renderGameButton = (name) => {
-            const lowerName = name.toLowerCase();
-            const isActive = state.currentGame === lowerName;
-            return `
-                <button
-                    onclick="window.setCurrentGame('${lowerName}')"
-                    class="flex-1 py-2 rounded-lg font-bold tracking-wider uppercase transition-all duration-200 ${
-                        isActive
-                            ? 'bg-cyan-600 text-slate-900 shadow-xl'
-                            : 'bg-slate-700 text-white hover:bg-slate-600'
-                    }"
-                >
-                    ${name}
-                </button>
-            `;
-        };
+        appContainer.innerHTML = header + gameContent + footer;
+    };
 
+    // ────────────────────── START ──────────────────────
+    // Check if a PHP session is currently active
+    const phpSessionActive = document.cookie.includes('PHPSESSID');
 
-        // --- Initialization ---
-
-        const initializeFirebase = async () => {
-            if (Object.keys(firebaseConfig).length === 0) {
-                console.error("Firebase Configuration is missing from the environment.");
-                updateState({ error: "Firebase not initialized. Configuration data is missing.", isLoading: false });
-                return;
-            }
-
-            try {
-                app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-            } catch (e) {
-                updateState({ error: "Firebase initialization failed. Check browser console.", isLoading: false });
-                console.error("Firebase initialization failed:", e);
-                return;
-            }
-
-            onAuthStateChanged(auth, async (user) => {
-                let uid = user?.uid;
-
-                if (!user) {
-                    try {
-                        if (initialAuthToken) {
-                            const credential = await withRetry(() => signInWithCustomToken(auth, initialAuthToken));
-                            uid = credential.user.uid;
-                        } else {
-                            const credential = await withRetry(() => signInAnonymously(auth));
-                            uid = credential.user.uid;
-                        }
-                    } catch (e) {
-                        console.error("Authentication failed:", e);
-                        updateState({ error: "Failed to sign in. Cannot access user data.", isLoading: false });
-                        return;
-                    }
-                }
-
-                if (uid) {
-                    updateState({ userId: uid, isAuthReady: true });
-                    setupFirestoreListener(uid);
-                }
-            });
-        };
-
-        const setupFirestoreListener = (uid) => {
-            const fundsDocRef = getFundsDocRef(uid);
-            onSnapshot(fundsDocRef, async (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    updateState({ balance: data.balance, isLoading: false, error: null });
-                } else {
-                    console.log("User fund document not found. Initializing balance.");
-                    try {
-                        await setDoc(fundsDocRef, { balance: INITIAL_BALANCE, userId: uid });
-                        updateState({ balance: INITIAL_BALANCE, isLoading: false, error: null });
-                    } catch (e) {
-                        console.error("Failed to initialize balance:", e);
-                        updateState({ error: "Failed to initialize user funds. Check Security Rules.", isLoading: false });
-                    }
-                }
-            }, (e) => {
-                console.error("Firestore subscription error:", e);
-                updateState({ error: "Failed to connect to funds database. Check console for security rule errors.", isLoading: false });
-            });
-        };
-
-        initializeFirebase();
-        renderApp();
-
-    </script>
+    if (phpSessionActive) {
+        // If a session exists, try to load the balance immediately
+        loadBalance();
+    } else {
+        // If no session exists, skip the API call and go straight to login UI
+        showLogin();
+    }
+</script>
 </body>
 </html>
